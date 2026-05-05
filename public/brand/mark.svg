@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Narrow Center / Living Edge mark</title>
+  <desc id="desc">A strict central square surrounded by porous bracket rails.</desc>
+  <rect width="256" height="256" rx="28" fill="#EEE4D0"/>
+  <path d="M52 52h58v18H70v40H52V52Zm94 0h58v58h-18V70h-40V52ZM52 146h18v40h40v18H52v-58Zm134 0h18v58h-58v-18h40v-40Z" fill="#23201B"/>
+  <rect x="102" y="102" width="52" height="52" rx="4" fill="#B9683A"/>
+  <path d="M128 25v37M128 194v37M25 128h37M194 128h37" stroke="#375C83" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="128" cy="128" r="92" fill="none" stroke="#23201B" stroke-opacity=".16" stroke-width="8" stroke-dasharray="2 18" stroke-linecap="round"/>
+</svg>

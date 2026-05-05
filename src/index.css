@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650;9..144,800&family=Outfit:wght@400;500;650;750&display=swap');
+
+:root {
+  color-scheme: light;
+  --paper: oklch(0.91 0.035 82);
+  --paper-soft: oklch(0.96 0.024 86);
+  --ink: oklch(0.19 0.018 74);
+  --ink-soft: oklch(0.34 0.025 72);
+  --copper: oklch(0.54 0.105 54);
+  --copper-deep: oklch(0.39 0.081 48);
+  --blue: oklch(0.43 0.079 248);
+  --blue-soft: oklch(0.78 0.045 239);
+  --moss: oklch(0.44 0.055 137);
+  --ash: oklch(0.72 0.025 82);
+  --danger: oklch(0.49 0.13 29);
+  --line: color-mix(in oklch, var(--ink) 20%, transparent);
+  --shadow: 0 28px 80px color-mix(in oklch, var(--ink) 18%, transparent);
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Outfit', Avenir, sans-serif;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background:
+    linear-gradient(90deg, color-mix(in oklch, var(--ink) 7%, transparent) 1px, transparent 1px) 0 0 / 42px 42px,
+    linear-gradient(color-mix(in oklch, var(--ink) 5%, transparent) 1px, transparent 1px) 0 0 / 42px 42px,
+    radial-gradient(circle at 10% 0%, color-mix(in oklch, var(--copper) 18%, transparent), transparent 32rem),
+    var(--paper);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; }
+button, input, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+::selection { background: var(--copper); color: var(--paper-soft); }
