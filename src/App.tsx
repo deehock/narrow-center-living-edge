@@ -1,12 +1,41 @@
+/**
+ * @purpose Renders the Narrow Center / Living Edge product shell, workspace navigation, and preserved doctrine field guide.
+ */
+
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Clipboard, GitBranch, Landmark, Orbit, PauseCircle, ShieldCheck, Sparkles } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import {
+  Activity,
+  Clipboard,
+  Download,
+  FileText,
+  GitBranch,
+  Landmark,
+  LayoutDashboard,
+  Network,
+  Orbit,
+  PauseCircle,
+  PlayCircle,
+  RotateCcw,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { classifyGovernance, generateCharter, rails, type GovernanceZone, zoneCopy } from './lib/governance'
+import { loadWorkspace, resetWorkspace, saveWorkspace } from './lib/persistence'
+import { summarizeWorkspace, type Agent, type Compact, type Scenario, type Workspace, type WorkspaceSection } from './lib/workspace'
 
 const zoneOrder: GovernanceZone[] = ['center', 'edge', 'observe', 'forbid']
-
 const powers = ['read memory', 'draft replies', 'call tools', 'spend budget', 'message humans', 'spawn agents']
+
+const navigation: Array<{ id: WorkspaceSection; label: string; icon: typeof LayoutDashboard }> = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'fleet', label: 'Fleet', icon: Network },
+  { id: 'scenarios', label: 'Scenarios', icon: PlayCircle },
+  { id: 'compacts', label: 'Compacts', icon: FileText },
+  { id: 'doctrine', label: 'Doctrine / Field Guide', icon: Landmark },
+  { id: 'exports', label: 'Exports', icon: Download },
+]
 
 function Mark() {
   return (
@@ -48,6 +77,195 @@ function TypographicOrbit() {
 
 function ZonePill({ zone }: { zone: GovernanceZone }) {
   return <span className={`zone zone--${zone}`}>{zoneCopy[zone].label}</span>
+}
+
+function StatusPill({ label }: { label: string }) {
+  return <span className="status-pill">{label}</span>
+}
+
+function Hero({ onNavigate }: { onNavigate: (section: WorkspaceSection) => void }) {
+  return (
+    <section className="hero shell-hero" aria-labelledby="hero-title">
+      <div className="hero__copy">
+        <div className="eyebrow"><Mark /> Chaordic governance for agent fleets</div>
+        <h1 id="hero-title">Narrow Center.<br />Living Edge.</h1>
+        <p>Govern fewer things absolutely. Observe many things continuously.</p>
+        <div className="hero__actions">
+          <button type="button" onClick={() => onNavigate('dashboard')}>Open workspace</button>
+          <button type="button" className="secondary" onClick={() => onNavigate('doctrine')}>Read field guide</button>
+        </div>
+      </div>
+      <TypographicOrbit />
+    </section>
+  )
+}
+
+function ShellHeader({ workspace, activeSection, onNavigate, onReset }: { workspace: Workspace; activeSection: WorkspaceSection; onNavigate: (section: WorkspaceSection) => void; onReset: () => void }) {
+  return (
+    <header className="app-header">
+      <a className="brand-lockup" href="#workspace" aria-label="Narrow Center workspace home" onClick={(event) => { event.preventDefault(); onNavigate('dashboard') }}>
+        <Mark />
+        <span><strong>{workspace.name}</strong><small>Workspace model · local-first demo</small></span>
+      </a>
+      <nav className="shell-nav" aria-label="Workspace sections">
+        {navigation.map((item) => {
+          const Icon = item.icon
+          return (
+            <button key={item.id} type="button" className={activeSection === item.id ? 'active' : ''} onClick={() => onNavigate(item.id)}>
+              <Icon aria-hidden="true" />
+              {item.label}
+            </button>
+          )
+        })}
+      </nav>
+      <button type="button" className="reset-button" onClick={onReset}><RotateCcw aria-hidden="true" />Reset demo</button>
+    </header>
+  )
+}
+
+function Dashboard({ workspace, onNavigate }: { workspace: Workspace; onNavigate: (section: WorkspaceSection) => void }) {
+  const summary = summarizeWorkspace(workspace)
+  const latestDecision = workspace.decisions[0]
+
+  return (
+    <section className="panel dashboard" aria-labelledby="dashboard-title">
+      <div className="section-kicker">Command surface</div>
+      <div className="split-heading">
+        <div>
+          <h2 id="dashboard-title">Fleet posture at a glance.</h2>
+          <p className="lede">{workspace.description}</p>
+        </div>
+        <button type="button" onClick={() => onNavigate('exports')}><Download aria-hidden="true" />Export state</button>
+      </div>
+      <div className="metric-grid">
+        <article><span>{summary.activeAgents}</span><p>active agents</p></article>
+        <article><span>{summary.centerCapabilities}</span><p>center capabilities</p></article>
+        <article><span>{summary.edgeCapabilities}</span><p>edge capabilities</p></article>
+        <article><span>{summary.openScenarios}</span><p>open scenarios</p></article>
+        <article><span>{summary.activeCompacts}</span><p>live compacts</p></article>
+        <article><span>{summary.doctrineCoverage}/{rails.length}</span><p>rails exercised</p></article>
+      </div>
+      <div className="dashboard-grid">
+        <article className="paper-card">
+          <div className="card-top"><Activity /><StatusPill label="localStorage persisted" /></div>
+          <h3>Workspace state</h3>
+          <p>Changes to the active section and reset action are serialized to localStorage through the typed workspace model.</p>
+        </article>
+        {latestDecision && (
+          <article className="paper-card">
+            <div className="card-top"><ShieldCheck /><ZonePill zone={latestDecision.zone} /></div>
+            <h3>{latestDecision.title}</h3>
+            <p>{latestDecision.summary}</p>
+          </article>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function Fleet({ workspace }: { workspace: Workspace }) {
+  const capabilityById = new Map(workspace.capabilities.map((capability) => [capability.id, capability]))
+
+  return (
+    <section className="panel" aria-labelledby="fleet-title">
+      <div className="section-kicker">Fleet</div>
+      <h2 id="fleet-title">Agents carry compacts, not vibes.</h2>
+      <div className="entity-grid">
+        {workspace.agents.map((agent: Agent) => (
+          <article className="entity-card" key={agent.id}>
+            <div className="card-top"><StatusPill label={agent.status} /><span>{agent.owner}</span></div>
+            <h3>{agent.name}</h3>
+            <p>{agent.purpose}</p>
+            <dl>
+              <dt>Role</dt><dd>{agent.role}</dd>
+              <dt>Risk</dt><dd>{agent.risk}</dd>
+              <dt>Capabilities</dt>
+              <dd className="mini-pills">
+                {agent.capabilityIds.map((id) => {
+                  const capability = capabilityById.get(id)
+                  return capability ? <ZonePill key={id} zone={capability.zone} /> : null
+                })}
+              </dd>
+            </dl>
+          </article>
+        ))}
+      </div>
+      <div className="capability-board">
+        {zoneOrder.map((zone) => (
+          <article key={zone}>
+            <ZonePill zone={zone} />
+            <ul>
+              {workspace.capabilities.filter((capability) => capability.zone === zone).map((capability) => (
+                <li key={capability.id}><strong>{capability.name}</strong><span>{capability.status}</span></li>
+              ))}
+            </ul>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function Scenarios({ workspace }: { workspace: Workspace }) {
+  return (
+    <section className="panel" aria-labelledby="scenarios-title">
+      <div className="section-kicker">Scenarios</div>
+      <h2 id="scenarios-title">Test judgment before it hardens.</h2>
+      <div className="scenario-list">
+        {workspace.scenarios.map((scenario: Scenario, index) => (
+          <article key={scenario.id} className="scenario-row">
+            <span className="scenario-index">{String(index + 1).padStart(2, '0')}</span>
+            <div>
+              <div className="card-top"><StatusPill label={scenario.status} /><span>{scenario.agentIds.length} agent(s)</span></div>
+              <h3>{scenario.title}</h3>
+              <p>{scenario.prompt}</p>
+              <strong>Expected outcome</strong>
+              <p>{scenario.outcome}</p>
+              <div className="mini-pills">{scenario.expectedRailIds.map((id) => <span className="status-pill" key={id}>{id}</span>)}</div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function Compacts({ workspace }: { workspace: Workspace }) {
+  return (
+    <section className="panel" aria-labelledby="compacts-title">
+      <div className="section-kicker">Compacts</div>
+      <h2 id="compacts-title">Purpose, powers, limits, renewal.</h2>
+      <div className="entity-grid">
+        {workspace.compacts.map((compact: Compact) => (
+          <article className="compact-card" key={compact.id}>
+            <div className="stamp">v{compact.version} · {compact.status}</div>
+            <h3>{compact.title}</h3>
+            <p>{compact.purpose}</p>
+            <dl>
+              <dt>Powers</dt><dd>{compact.powers.join(', ')}</dd>
+              <dt>Limits</dt><dd>{compact.limits.join(' · ')}</dd>
+              <dt>Escalation</dt><dd>{compact.escalation}</dd>
+              <dt>Renewal</dt><dd>{compact.renewalCadence}</dd>
+            </dl>
+          </article>
+        ))}
+      </div>
+      <CharterBuilder />
+    </section>
+  )
+}
+
+function Exports({ workspace }: { workspace: Workspace }) {
+  const exported = useMemo(() => JSON.stringify({ schemaVersion: 1, workspace }, null, 2), [workspace])
+
+  return (
+    <section className="panel exports" aria-labelledby="exports-title">
+      <div className="section-kicker">Exports</div>
+      <h2 id="exports-title">Portable workspace state.</h2>
+      <p className="lede">This demo keeps state local and exportable. Copy the JSON to inspect the typed model that powers the shell.</p>
+      <textarea readOnly rows={18} value={exported} aria-label="Serialized workspace JSON" />
+    </section>
+  )
 }
 
 function Diagnostic() {
@@ -115,7 +333,6 @@ function CharterBuilder() {
   const [purpose, setPurpose] = useState('map emerging payment-agent behaviors and surface risks before they harden')
   const [risk, setRisk] = useState<'low' | 'medium' | 'high'>('medium')
   const [selectedPowers, setSelectedPowers] = useState(['read memory', 'draft replies', 'call tools'])
-
   const charter = useMemo(() => generateCharter({ name, purpose, powers: selectedPowers, risk }), [name, purpose, selectedPowers, risk])
 
   function togglePower(power: string) {
@@ -194,38 +411,73 @@ function Cadence() {
   )
 }
 
-function App() {
+function Doctrine() {
   return (
-    <main>
-      <section className="hero" aria-labelledby="hero-title">
-        <div className="hero__copy">
-          <div className="eyebrow"><Mark /> Chaordic governance for agent fleets</div>
-          <h1 id="hero-title">Narrow Center.<br />Living Edge.</h1>
-          <p>Govern fewer things absolutely. Observe many things continuously.</p>
-          <div className="hero__actions">
-            <a href="#diagnostic">Run the diagnostic</a>
-            <a href="#charter" className="secondary">Draft a charter</a>
-          </div>
-        </div>
-        <TypographicOrbit />
-      </section>
-
+    <div className="field-guide">
       <section className="doctrine" aria-label="Core doctrine">
         <article><ShieldCheck /><h2>Hard rails</h2><p>Identity, authority, audit, budget, settlement, and revocation belong at the center.</p></article>
         <article><Orbit /><h2>Living edges</h2><p>Voice, tactics, experiments, and domain specialization belong near the work.</p></article>
         <article><GitBranch /><h2>Accountable mutation</h2><p>Let agents learn locally without letting trust become local folklore.</p></article>
         <article><PauseCircle /><h2>Real pause</h2><p>Revocation must happen at credentials, budget, and network access — not merely in policy.</p></article>
       </section>
-
       <Diagnostic />
       <Rails />
-      <CharterBuilder />
       <AntiPatterns />
       <Cadence />
+    </div>
+  )
+}
 
+function WorkspacePanel({ workspace, onWorkspaceChange }: { workspace: Workspace; onWorkspaceChange: (workspace: Workspace) => void }) {
+  function setSection(section: WorkspaceSection) {
+    onWorkspaceChange({ ...workspace, activeSection: section })
+    document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function resetDemo() {
+    onWorkspaceChange(resetWorkspace())
+  }
+
+  return (
+    <div className="workspace-shell" id="workspace">
+      <ShellHeader workspace={workspace} activeSection={workspace.activeSection} onNavigate={setSection} onReset={resetDemo} />
+      <AnimatePresence mode="wait">
+        <motion.div key={workspace.activeSection} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
+          {workspace.activeSection === 'dashboard' && <Dashboard workspace={workspace} onNavigate={setSection} />}
+          {workspace.activeSection === 'fleet' && <Fleet workspace={workspace} />}
+          {workspace.activeSection === 'scenarios' && <Scenarios workspace={workspace} />}
+          {workspace.activeSection === 'compacts' && <Compacts workspace={workspace} />}
+          {workspace.activeSection === 'doctrine' && <Doctrine />}
+          {workspace.activeSection === 'exports' && <Exports workspace={workspace} />}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function App() {
+  const [workspace, setWorkspace] = useState<Workspace>(() => loadWorkspace())
+
+  useEffect(() => {
+    saveWorkspace(workspace)
+  }, [workspace])
+
+  function updateWorkspace(nextWorkspace: Workspace) {
+    setWorkspace(nextWorkspace)
+  }
+
+  function navigateFromHero(section: WorkspaceSection) {
+    updateWorkspace({ ...workspace, activeSection: section })
+    window.setTimeout(() => document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+  }
+
+  return (
+    <main>
+      <Hero onNavigate={navigateFromHero} />
+      <WorkspacePanel workspace={workspace} onWorkspaceChange={updateWorkspace} />
       <footer>
         <Clipboard />
-        <p>A field manual for fleets that can speak, spend, remember, and delegate.</p>
+        <p>A field manual and workspace for fleets that can speak, spend, remember, and delegate.</p>
         <a href="#hero-title">Return to center</a>
       </footer>
     </main>
