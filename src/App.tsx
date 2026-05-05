@@ -15,6 +15,7 @@ import {
   Orbit,
   PauseCircle,
   PlayCircle,
+  Plus,
   RotateCcw,
   ShieldCheck,
   Sparkles,
@@ -23,7 +24,20 @@ import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { classifyGovernance, generateCharter, rails, type GovernanceZone, zoneCopy } from './lib/governance'
 import { loadWorkspace, resetWorkspace, saveWorkspace } from './lib/persistence'
-import { summarizeWorkspace, type Agent, type Compact, type Scenario, type Workspace, type WorkspaceSection } from './lib/workspace'
+import {
+  addAgent,
+  compactMarkdown,
+  recordScenario,
+  summarizeWorkspace,
+  workspaceMarkdown,
+  type Agent,
+  type AgentDraft,
+  type Compact,
+  type Scenario,
+  type ScenarioDraft,
+  type Workspace,
+  type WorkspaceSection,
+} from './lib/workspace'
 
 const zoneOrder: GovernanceZone[] = ['center', 'edge', 'observe', 'forbid']
 const powers = ['read memory', 'draft replies', 'call tools', 'spend budget', 'message humans', 'spawn agents']
@@ -105,7 +119,7 @@ function ShellHeader({ workspace, activeSection, onNavigate, onReset }: { worksp
     <header className="app-header">
       <a className="brand-lockup" href="#workspace" aria-label="Narrow Center workspace home" onClick={(event) => { event.preventDefault(); onNavigate('dashboard') }}>
         <Mark />
-        <span><strong>{workspace.name}</strong><small>Workspace model · local-first demo</small></span>
+        <span><strong>{workspace.name}</strong><small>Local-first governance workbench</small></span>
       </a>
       <nav className="shell-nav" aria-label="Workspace sections">
         {navigation.map((item) => {
@@ -135,21 +149,24 @@ function Dashboard({ workspace, onNavigate }: { workspace: Workspace; onNavigate
           <h2 id="dashboard-title">Fleet posture at a glance.</h2>
           <p className="lede">{workspace.description}</p>
         </div>
-        <button type="button" onClick={() => onNavigate('exports')}><Download aria-hidden="true" />Export state</button>
+        <div className="button-row">
+          <button type="button" onClick={() => onNavigate('fleet')}><Plus aria-hidden="true" />Add agent</button>
+          <button type="button" onClick={() => onNavigate('exports')}><Download aria-hidden="true" />Export state</button>
+        </div>
       </div>
       <div className="metric-grid">
         <article><span>{summary.activeAgents}</span><p>active agents</p></article>
         <article><span>{summary.centerCapabilities}</span><p>center capabilities</p></article>
         <article><span>{summary.edgeCapabilities}</span><p>edge capabilities</p></article>
+        <article><span>{summary.observedCapabilities}</span><p>observed fields</p></article>
         <article><span>{summary.openScenarios}</span><p>open scenarios</p></article>
-        <article><span>{summary.activeCompacts}</span><p>live compacts</p></article>
         <article><span>{summary.doctrineCoverage}/{rails.length}</span><p>rails exercised</p></article>
       </div>
       <div className="dashboard-grid">
         <article className="paper-card">
-          <div className="card-top"><Activity /><StatusPill label="localStorage persisted" /></div>
-          <h3>Workspace state</h3>
-          <p>Changes to the active section and reset action are serialized to localStorage through the typed workspace model.</p>
+          <div className="card-top"><Activity /><StatusPill label="persisted locally" /></div>
+          <h3>This is now a workbench.</h3>
+          <p>Create agents, record governance scenarios, generate compacts, and export the state as doctrine. It is still local-only, but no longer just a page.</p>
         </article>
         {latestDecision && (
           <article className="paper-card">
@@ -163,32 +180,76 @@ function Dashboard({ workspace, onNavigate }: { workspace: Workspace; onNavigate
   )
 }
 
-function Fleet({ workspace }: { workspace: Workspace }) {
+function Fleet({ workspace, onWorkspaceChange }: { workspace: Workspace; onWorkspaceChange: (workspace: Workspace) => void }) {
   const capabilityById = new Map(workspace.capabilities.map((capability) => [capability.id, capability]))
+  const [draft, setDraft] = useState<AgentDraft>({
+    name: 'Commerce Concierge',
+    role: 'Agentic commerce operator',
+    owner: 'Growth Products',
+    purpose: 'help a delegated buyer compare options and prepare a bounded purchase recommendation',
+    risk: 'medium',
+    powers: ['read memory', 'call tools', 'spend budget'],
+  })
+
+  function togglePower(power: string) {
+    setDraft((current) => ({ ...current, powers: current.powers.includes(power) ? current.powers.filter((item) => item !== power) : [...current.powers, power] }))
+  }
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    onWorkspaceChange(addAgent(workspace, draft))
+  }
 
   return (
     <section className="panel" aria-labelledby="fleet-title">
       <div className="section-kicker">Fleet</div>
-      <h2 id="fleet-title">Agents carry compacts, not vibes.</h2>
-      <div className="entity-grid">
-        {workspace.agents.map((agent: Agent) => (
-          <article className="entity-card" key={agent.id}>
-            <div className="card-top"><StatusPill label={agent.status} /><span>{agent.owner}</span></div>
-            <h3>{agent.name}</h3>
-            <p>{agent.purpose}</p>
-            <dl>
-              <dt>Role</dt><dd>{agent.role}</dd>
-              <dt>Risk</dt><dd>{agent.risk}</dd>
-              <dt>Capabilities</dt>
-              <dd className="mini-pills">
-                {agent.capabilityIds.map((id) => {
-                  const capability = capabilityById.get(id)
-                  return capability ? <ZonePill key={id} zone={capability.zone} /> : null
-                })}
-              </dd>
-            </dl>
-          </article>
-        ))}
+      <div className="split-heading">
+        <div>
+          <h2 id="fleet-title">Agents carry compacts, not vibes.</h2>
+          <p className="lede">Inventory each agent as delegated institutional authority: owner, purpose, risk, powers, and compact.</p>
+        </div>
+      </div>
+      <div className="workbench-grid">
+        <form className="console product-form" onSubmit={submit}>
+          <h3>Add an agent</h3>
+          <label>Name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+          <label>Role<input value={draft.role} onChange={(event) => setDraft({ ...draft, role: event.target.value })} /></label>
+          <label>Owner<input value={draft.owner} onChange={(event) => setDraft({ ...draft, owner: event.target.value })} /></label>
+          <label>Purpose<textarea rows={3} value={draft.purpose} onChange={(event) => setDraft({ ...draft, purpose: event.target.value })} /></label>
+          <fieldset>
+            <legend>Powers</legend>
+            <div className="chips">
+              {powers.map((power) => <button key={power} type="button" className={draft.powers.includes(power) ? 'selected' : ''} onClick={() => togglePower(power)}>{power}</button>)}
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Risk posture</legend>
+            <div className="segmented">
+              {(['low', 'medium', 'high'] as const).map((level) => <button key={level} type="button" className={draft.risk === level ? 'selected' : ''} onClick={() => setDraft({ ...draft, risk: level })}>{level}</button>)}
+            </div>
+          </fieldset>
+          <button type="submit"><Plus aria-hidden="true" />Create agent + draft compact</button>
+        </form>
+        <div className="entity-grid entity-grid--stacked">
+          {workspace.agents.map((agent: Agent) => (
+            <article className="entity-card" key={agent.id}>
+              <div className="card-top"><StatusPill label={agent.status} /><span>{agent.owner}</span></div>
+              <h3>{agent.name}</h3>
+              <p>{agent.purpose}</p>
+              <dl>
+                <dt>Role</dt><dd>{agent.role}</dd>
+                <dt>Risk</dt><dd>{agent.risk}</dd>
+                <dt>Capabilities</dt>
+                <dd className="mini-pills">
+                  {agent.capabilityIds.map((id) => {
+                    const capability = capabilityById.get(id)
+                    return capability ? <ZonePill key={id} zone={capability.zone} /> : null
+                  })}
+                </dd>
+              </dl>
+            </article>
+          ))}
+        </div>
       </div>
       <div className="capability-board">
         {zoneOrder.map((zone) => (
@@ -206,31 +267,70 @@ function Fleet({ workspace }: { workspace: Workspace }) {
   )
 }
 
-function Scenarios({ workspace }: { workspace: Workspace }) {
+function Scenarios({ workspace, onWorkspaceChange }: { workspace: Workspace; onWorkspaceChange: (workspace: Workspace) => void }) {
+  const [draft, setDraft] = useState<ScenarioDraft>({
+    title: 'Buyer agent requests live card credential',
+    prompt: 'Can an agent receive a live payment credential and spend up to a delegated budget for a buyer?',
+    agentId: workspace.agents[0]?.id ?? '',
+  })
+  const previewZone = classifyGovernance(draft.prompt)
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    onWorkspaceChange(recordScenario(workspace, draft))
+  }
+
   return (
     <section className="panel" aria-labelledby="scenarios-title">
       <div className="section-kicker">Scenarios</div>
-      <h2 id="scenarios-title">Test judgment before it hardens.</h2>
-      <div className="scenario-list">
-        {workspace.scenarios.map((scenario: Scenario, index) => (
-          <article key={scenario.id} className="scenario-row">
-            <span className="scenario-index">{String(index + 1).padStart(2, '0')}</span>
-            <div>
-              <div className="card-top"><StatusPill label={scenario.status} /><span>{scenario.agentIds.length} agent(s)</span></div>
-              <h3>{scenario.title}</h3>
-              <p>{scenario.prompt}</p>
-              <strong>Expected outcome</strong>
-              <p>{scenario.outcome}</p>
-              <div className="mini-pills">{scenario.expectedRailIds.map((id) => <span className="status-pill" key={id}>{id}</span>)}</div>
-            </div>
-          </article>
-        ))}
+      <div className="split-heading">
+        <div>
+          <h2 id="scenarios-title">Test judgment before it hardens.</h2>
+          <p className="lede">Record proposed powers as precedents. The workbench classifies the instinct, proposes rails, and keeps the decision trail.</p>
+        </div>
+      </div>
+      <div className="workbench-grid">
+        <form className="console product-form" onSubmit={submit}>
+          <h3>Run a scenario</h3>
+          <label>Title<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
+          <label>Question<textarea rows={4} value={draft.prompt} onChange={(event) => setDraft({ ...draft, prompt: event.target.value })} /></label>
+          <label>Agent
+            <select value={draft.agentId} onChange={(event) => setDraft({ ...draft, agentId: event.target.value })}>
+              {workspace.agents.map((agent) => <option value={agent.id} key={agent.id}>{agent.name}</option>)}
+            </select>
+          </label>
+          <div className={`verdict verdict--${previewZone}`}>
+            <ZonePill zone={previewZone} />
+            <h3>{zoneCopy[previewZone].action}</h3>
+            <p>{zoneCopy[previewZone].description}</p>
+          </div>
+          <button type="submit"><PlayCircle aria-hidden="true" />Record precedent</button>
+        </form>
+        <div className="scenario-list scenario-list--compact">
+          {workspace.scenarios.map((scenario: Scenario, index) => (
+            <article key={scenario.id} className="scenario-row">
+              <span className="scenario-index">{String(index + 1).padStart(2, '0')}</span>
+              <div>
+                <div className="card-top"><StatusPill label={scenario.status} /><span>{scenario.agentIds.length} agent(s)</span></div>
+                <h3>{scenario.title}</h3>
+                <p>{scenario.prompt}</p>
+                <strong>Expected outcome</strong>
+                <p>{scenario.outcome}</p>
+                <div className="mini-pills">{scenario.expectedRailIds.map((id) => <span className="status-pill" key={id}>{id}</span>)}</div>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   )
 }
 
 function Compacts({ workspace }: { workspace: Workspace }) {
+  const agentById = new Map(workspace.agents.map((agent) => [agent.id, agent]))
+  const [selectedCompactId, setSelectedCompactId] = useState(workspace.compacts[0]?.id ?? '')
+  const selectedCompact = workspace.compacts.find((compact) => compact.id === selectedCompactId) ?? workspace.compacts[0]
+
   return (
     <section className="panel" aria-labelledby="compacts-title">
       <div className="section-kicker">Compacts</div>
@@ -247,23 +347,35 @@ function Compacts({ workspace }: { workspace: Workspace }) {
               <dt>Escalation</dt><dd>{compact.escalation}</dd>
               <dt>Renewal</dt><dd>{compact.renewalCadence}</dd>
             </dl>
+            <button type="button" onClick={() => setSelectedCompactId(compact.id)}>Preview export</button>
           </article>
         ))}
       </div>
+      {selectedCompact && (
+        <section className="export-card" aria-labelledby="compact-export-title">
+          <div className="section-kicker">Compact export</div>
+          <h3 id="compact-export-title">{selectedCompact.title}</h3>
+          <textarea readOnly rows={16} value={compactMarkdown(selectedCompact, agentById.get(selectedCompact.agentId))} aria-label="Compact markdown export" />
+        </section>
+      )}
       <CharterBuilder />
     </section>
   )
 }
 
 function Exports({ workspace }: { workspace: Workspace }) {
-  const exported = useMemo(() => JSON.stringify({ schemaVersion: 1, workspace }, null, 2), [workspace])
+  const exportedJson = useMemo(() => JSON.stringify({ schemaVersion: 1, workspace }, null, 2), [workspace])
+  const exportedMarkdown = useMemo(() => workspaceMarkdown(workspace), [workspace])
 
   return (
     <section className="panel exports" aria-labelledby="exports-title">
       <div className="section-kicker">Exports</div>
       <h2 id="exports-title">Portable workspace state.</h2>
-      <p className="lede">This demo keeps state local and exportable. Copy the JSON to inspect the typed model that powers the shell.</p>
-      <textarea readOnly rows={18} value={exported} aria-label="Serialized workspace JSON" />
+      <p className="lede">Copy either artifact. JSON preserves the product state; markdown gives humans the operating packet.</p>
+      <div className="export-grid">
+        <label>Markdown operating packet<textarea readOnly rows={22} value={exportedMarkdown} aria-label="Workspace markdown export" /></label>
+        <label>Workspace JSON<textarea readOnly rows={22} value={exportedJson} aria-label="Serialized workspace JSON" /></label>
+      </div>
     </section>
   )
 }
@@ -341,11 +453,11 @@ function CharterBuilder() {
 
   return (
     <section className="charter" id="charter" aria-labelledby="charter-title">
-      <div className="section-kicker">Charter builder</div>
+      <div className="section-kicker">Freeform charter builder</div>
       <div className="charter__grid">
         <div>
-          <h2 id="charter-title">Every agent should carry its compact.</h2>
-          <p className="lede">Not a prompt. A compact: purpose, powers, limits, reciprocity, dissolution.</p>
+          <h2 id="charter-title">Draft a compact in one minute.</h2>
+          <p className="lede">This scratchpad remains for quick thinking; the Compacts tab turns saved agents into exportable operating doctrine.</p>
           <div className="formstack">
             <label>Agent name<input value={name} onChange={(event) => setName(event.target.value)} /></label>
             <label>Purpose<textarea rows={3} value={purpose} onChange={(event) => setPurpose(event.target.value)} /></label>
@@ -444,8 +556,8 @@ function WorkspacePanel({ workspace, onWorkspaceChange }: { workspace: Workspace
       <AnimatePresence mode="wait">
         <motion.div key={workspace.activeSection} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
           {workspace.activeSection === 'dashboard' && <Dashboard workspace={workspace} onNavigate={setSection} />}
-          {workspace.activeSection === 'fleet' && <Fleet workspace={workspace} />}
-          {workspace.activeSection === 'scenarios' && <Scenarios workspace={workspace} />}
+          {workspace.activeSection === 'fleet' && <Fleet workspace={workspace} onWorkspaceChange={onWorkspaceChange} />}
+          {workspace.activeSection === 'scenarios' && <Scenarios workspace={workspace} onWorkspaceChange={onWorkspaceChange} />}
           {workspace.activeSection === 'compacts' && <Compacts workspace={workspace} />}
           {workspace.activeSection === 'doctrine' && <Doctrine />}
           {workspace.activeSection === 'exports' && <Exports workspace={workspace} />}

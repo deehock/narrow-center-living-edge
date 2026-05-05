@@ -4,7 +4,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { loadWorkspace, resetWorkspace, saveWorkspace, type WorkspaceStore } from './persistence'
-import { parseWorkspace, seededWorkspace, serializeWorkspace, WORKSPACE_STORAGE_KEY } from './workspace'
+import { addAgent, parseWorkspace, recordScenario, seededWorkspace, serializeWorkspace, WORKSPACE_STORAGE_KEY, workspaceMarkdown } from './workspace'
 
 function createStore(seed?: string): WorkspaceStore & { values: Map<string, string> } {
   const values = new Map<string, string>()
@@ -34,6 +34,40 @@ describe('workspace serialization', () => {
 
   it('rejects unsupported schemas', () => {
     expect(() => parseWorkspace(JSON.stringify({ schemaVersion: 999, workspace: seededWorkspace }))).toThrow('Unsupported workspace schema')
+  })
+
+  it('adds an agent with a draft compact', () => {
+    const workspace = addAgent(seededWorkspace, {
+      name: 'Buyer Agent',
+      role: 'Delegated buyer',
+      owner: 'Commerce',
+      purpose: 'prepare bounded purchases',
+      risk: 'medium',
+      powers: ['read memory', 'spend budget'],
+    })
+
+    expect(workspace.agents.at(-1)?.name).toBe('Buyer Agent')
+    expect(workspace.compacts.at(-1)?.title).toContain('Buyer Agent')
+  })
+
+  it('records scenarios as precedents and decisions', () => {
+    const workspace = recordScenario(seededWorkspace, {
+      title: 'Hidden delegation',
+      prompt: 'Can an agent secretly delegate to another agent and hide that from audit?',
+      agentId: 'agent-scout',
+    })
+
+    expect(workspace.scenarios[0]?.title).toBe('Hidden delegation')
+    expect(workspace.decisions[0]?.zone).toBe('forbid')
+    expect(workspace.decisions[0]?.status).toBe('rejected')
+  })
+
+  it('exports a markdown operating packet', () => {
+    const markdown = workspaceMarkdown(seededWorkspace)
+
+    expect(markdown).toContain('# Living Edge Demo Fleet')
+    expect(markdown).toContain('## Agents')
+    expect(markdown).toContain('Settlement Scout')
   })
 })
 

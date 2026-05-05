@@ -1,8 +1,8 @@
 /**
- * @purpose Defines the Narrow Center / Living Edge workspace domain model, seeded demo data, and serialization helpers.
+ * @purpose Defines the Narrow Center / Living Edge workspace domain model, seeded demo data, export helpers, and summary logic.
  */
 
-import { rails, type GovernanceZone } from './governance'
+import { classifyGovernance, generateCharter, rails, type GovernanceZone } from './governance'
 
 export type CapabilityStatus = 'active' | 'observed' | 'paused' | 'forbidden'
 export type AgentStatus = 'active' | 'watching' | 'paused' | 'retired'
@@ -84,7 +84,22 @@ export type Workspace = {
   compacts: Compact[]
 }
 
-export const WORKSPACE_STORAGE_KEY = 'ncle.workspace.v1'
+export type AgentDraft = {
+  name: string
+  role: string
+  owner: string
+  purpose: string
+  risk: Agent['risk']
+  powers: string[]
+}
+
+export type ScenarioDraft = {
+  title: string
+  prompt: string
+  agentId: string
+}
+
+export const WORKSPACE_STORAGE_KEY = 'narrow-center-living-edge.workspace.v1'
 export const WORKSPACE_SCHEMA_VERSION = 1
 
 export type SerializedWorkspace = {
@@ -274,9 +289,166 @@ export function summarizeWorkspace(workspace: Workspace) {
   const activeAgents = workspace.agents.filter((agent) => agent.status === 'active').length
   const centerCapabilities = workspace.capabilities.filter((capability) => capability.zone === 'center').length
   const edgeCapabilities = workspace.capabilities.filter((capability) => capability.zone === 'edge').length
+  const observedCapabilities = workspace.capabilities.filter((capability) => capability.zone === 'observe').length
+  const forbiddenCapabilities = workspace.capabilities.filter((capability) => capability.zone === 'forbid').length
   const openScenarios = workspace.scenarios.filter((scenario) => scenario.status === 'draft' || scenario.status === 'running' || scenario.status === 'review').length
   const activeCompacts = workspace.compacts.filter((compact) => compact.status === 'active' || compact.status === 'review').length
   const doctrineCoverage = rails.filter((rail) => workspace.scenarios.some((scenario) => scenario.expectedRailIds.includes(rail.id))).length
 
-  return { activeAgents, centerCapabilities, edgeCapabilities, openScenarios, activeCompacts, doctrineCoverage }
+  return { activeAgents, centerCapabilities, edgeCapabilities, observedCapabilities, forbiddenCapabilities, openScenarios, activeCompacts, doctrineCoverage }
+}
+
+function slug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'item'
+}
+
+function stamp() {
+  return new Date().toISOString()
+}
+
+function inferCapabilityIds(powers: string[]) {
+  const joined = powers.join(' ').toLowerCase()
+  const ids = new Set<string>(['cap-identity'])
+
+  if (/spend|budget|payment|settle/.test(joined)) ids.add('cap-payment')
+  if (/memory|remember|context/.test(joined)) ids.add('cap-memory')
+  if (/reply|message|voice|speak|channel/.test(joined)) ids.add('cap-voice')
+
+  return [...ids]
+}
+
+export function addAgent(workspace: Workspace, draft: AgentDraft): Workspace {
+  const id = `agent-${slug(draft.name)}-${workspace.agents.length + 1}`
+  const compactId = `compact-${slug(draft.name)}-${workspace.compacts.length + 1}`
+  const createdAt = stamp()
+  const agent: Agent = {
+    id,
+    name: draft.name.trim() || 'Unnamed Agent',
+    role: draft.role.trim() || 'Edge operator',
+    owner: draft.owner.trim() || 'Unassigned',
+    status: 'active',
+    purpose: draft.purpose.trim() || 'serve a bounded purpose under visible authority',
+    risk: draft.risk,
+    capabilityIds: inferCapabilityIds(draft.powers),
+    compactId,
+    lastActiveAt: createdAt,
+  }
+  const compact: Compact = {
+    id: compactId,
+    title: `${agent.name} Operating Compact`,
+    agentId: id,
+    status: 'draft',
+    purpose: agent.purpose,
+    powers: draft.powers.length ? draft.powers : ['observe', 'draft', 'recommend'],
+    limits: ['No hidden delegation', 'No irreversible action outside declared authority'],
+    escalation: draft.risk === 'high' ? 'Escalate before external action or spend.' : 'Escalate when confidence or authority is unclear.',
+    renewalCadence: 'Review after first scenario and weekly thereafter',
+    version: 1,
+    updatedAt: createdAt,
+  }
+
+  return {
+    ...workspace,
+    updatedAt: createdAt,
+    activeSection: 'fleet',
+    agents: [...workspace.agents, agent],
+    compacts: [...workspace.compacts, compact],
+  }
+}
+
+export function recordScenario(workspace: Workspace, draft: ScenarioDraft): Workspace {
+  const createdAt = stamp()
+  const zone = classifyGovernance(draft.prompt)
+  const matchedRails = rails.filter((rail) => rail.zone === zone).slice(0, 3).map((rail) => rail.id)
+  const scenarioId = `scenario-${slug(draft.title)}-${workspace.scenarios.length + 1}`
+  const decisionId = `decision-${slug(draft.title)}-${workspace.decisions.length + 1}`
+  const scenario: Scenario = {
+    id: scenarioId,
+    title: draft.title.trim() || 'Untitled scenario',
+    status: 'review',
+    agentIds: draft.agentId ? [draft.agentId] : [],
+    prompt: draft.prompt.trim(),
+    expectedRailIds: matchedRails,
+    outcome: zone === 'center'
+      ? 'Standardize this at the rail before delegating behavior to the edge.'
+      : zone === 'edge'
+        ? 'Delegate locally inside compact boundaries and keep audit visible.'
+        : zone === 'observe'
+          ? 'Instrument it before freezing policy; watch provenance, quality, and drift.'
+          : 'Forbid at the rail; this attacks trust rather than expressing useful edge freedom.',
+    updatedAt: createdAt,
+  }
+  const decision: Decision = {
+    id: decisionId,
+    title: `Decision: ${scenario.title}`,
+    status: zone === 'forbid' ? 'rejected' : 'proposed',
+    zone,
+    summary: scenario.outcome,
+    evidence: [scenario.prompt],
+    decidedAt: createdAt,
+  }
+
+  return {
+    ...workspace,
+    updatedAt: createdAt,
+    activeSection: 'scenarios',
+    scenarios: [scenario, ...workspace.scenarios],
+    decisions: [decision, ...workspace.decisions],
+  }
+}
+
+export function compactMarkdown(compact: Compact, agent?: Agent): string {
+  return [
+    `# ${compact.title}`,
+    '',
+    `Agent: ${agent?.name ?? compact.agentId}`,
+    `Status: ${compact.status}`,
+    `Version: ${compact.version}`,
+    '',
+    '## Purpose',
+    compact.purpose,
+    '',
+    '## Powers',
+    ...compact.powers.map((power) => `- ${power}`),
+    '',
+    '## Limits',
+    ...compact.limits.map((limit) => `- ${limit}`),
+    '',
+    '## Escalation',
+    compact.escalation,
+    '',
+    '## Renewal / Dissolution',
+    compact.renewalCadence,
+    '',
+    '## Generated Compact Text',
+    generateCharter({ name: agent?.name ?? compact.title, purpose: compact.purpose, powers: compact.powers, risk: agent?.risk ?? 'medium' }),
+  ].join('\n')
+}
+
+export function workspaceMarkdown(workspace: Workspace): string {
+  const summary = summarizeWorkspace(workspace)
+  const agentLines = workspace.agents.map((agent) => `- ${agent.name} — ${agent.role}; ${agent.status}; risk ${agent.risk}`).join('\n')
+  const decisionLines = workspace.decisions.slice(0, 8).map((decision) => `- [${decision.zone}] ${decision.title}: ${decision.summary}`).join('\n')
+
+  return [
+    `# ${workspace.name}`,
+    '',
+    workspace.description,
+    '',
+    '## Posture',
+    `- Active agents: ${summary.activeAgents}`,
+    `- Center capabilities: ${summary.centerCapabilities}`,
+    `- Edge capabilities: ${summary.edgeCapabilities}`,
+    `- Observed capabilities: ${summary.observedCapabilities}`,
+    `- Forbidden capabilities: ${summary.forbiddenCapabilities}`,
+    `- Open scenarios: ${summary.openScenarios}`,
+    `- Active compacts: ${summary.activeCompacts}`,
+    `- Doctrine coverage: ${summary.doctrineCoverage}/${rails.length}`,
+    '',
+    '## Agents',
+    agentLines || '- None yet',
+    '',
+    '## Recent Decisions',
+    decisionLines || '- None yet',
+  ].join('\n')
 }
