@@ -1,44 +1,42 @@
-# Narrow Center / Living Edge
+<p align="center">
+  <img src="https://10et.ai/favicon.svg" width="48" height="48" alt="TENET">
+</p>
 
-A production-grade web artifact for chaordic governance of AI agent fleets.
+<h1 align="center">TENET Template</h1>
+<p align="center">Starter template for new TENET workspaces. Used by <code>tenet init</code>.</p>
 
-**Core doctrine:** Govern fewer things absolutely. Observe many things continuously.
+---
 
-## What it is
+## What This Is
 
-A single-page React/Vite app that turns the Visa/chaordic governance frame into a practical field guide for AI agents that can speak, spend, remember, call tools, and delegate.
+This repo is cloned when you run `tenet init -n my-project`. It includes:
 
-## Features
+- **CLAUDE.md** — Agent instructions, journal protocol, session management
+- **Skills** — Brand architect, content creator, search, spec, startup, and more
+- **Scripts** — Session init/cleanup, auto-commit, doctor, sync
+- **Knowledge templates** — VISION, THESIS, NARRATIVE, ARCHITECTURE, RUNBOOK
+- **Config** — `.tenet/config.json`, `.mcp.json`, Claude Code hooks
 
-- Branded institutional field-manual aesthetic.
-- Animated typographic orbit showing hard center / living edge.
-- Governance diagnostic: classify a fleet decision as center, edge, observed field, or forbidden.
-- Constitutional rail cards for identity, authority, budget, memory, voice, tool choice, audit, experiments, revocation, deception.
-- Charter builder that generates an operating compact for an agent.
-- Failure geometry and operating cadence sections.
-- Responsive layout, reduced-motion support, semantic labels.
-- Unit tests for governance classification and charter generation.
+## Structure
 
-## Run locally
-
-```bash
-npm install
-npm run dev
+```
+├── .tenet/config.json        — Project configuration
+├── .mcp.json                 — MCP server config (tenet-context-hub)
+├── .claude/settings.json     — Session hooks and journal enforcement
+├── CLAUDE.md                 — Agent instructions
+├── knowledge/                — Living documents
+├── scripts/session/          — Session lifecycle scripts
+└── templates/                — Sub-templates (service agents, brand, etc.)
 ```
 
-## Validate
+## How It Works
 
-```bash
-npm run test
-npm run build
-```
+1. `tenet init -n my-project` clones this repo
+2. Customizes `.tenet/config.json` with project name and owner
+3. Result: a fully configured TENET workspace
 
-## Brand notes
+Existing projects update via `tenet update` (refreshes skills, scripts, CLAUDE.md).
 
-This is intentionally not a generic AI dashboard. It should feel like infrastructure doctrine: ledger paper, seal, field manual, payment rails, accountable autonomy.
+## License
 
-See:
-
-- `knowledge/BRAND_BRIEF.md`
-- `knowledge/BRAND_DECISIONS.md`
-- `product/SPEC.md`
+MIT

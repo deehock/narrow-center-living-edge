@@ -1,0 +1,18 @@
+{
+  "name": "narrow-center-living-edge",
+  "type": "gtm",
+  "description": "Chaordic governance workbench for AI agent fleets",
+  "org": {
+    "roadmap_repo": "deehock/narrow-center-living-edge"
+  },
+  "skills": [
+    "startup",
+    "brand-architect",
+    "spec"
+  ],
+  "preset": "zero",
+  "focus": "Building a new product from scratch. Start by filling in knowledge/VISION.md — what are you building and why? Then use /skill startup for stage assessment, /skill brand-architect for identity, /skill spec for technical spec.",
+  "contextHub": {
+    "port": 4792
+  }
+}

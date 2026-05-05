@@ -1,24 +1,45 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# TENET runtime data — auto-generated, contains auth tokens and session state
+# Only .tenet/config.json and .tenet/agents/*.toml should be tracked
+.tenet/context-hub.*
+.tenet/provenance-key
+.tenet/memory.db*
+.tenet/map-events.jsonl
+.tenet/service-events.jsonl
+.tenet/eval.jsonl
+.tenet/journal/
+.tenet/logs/
+.tenet/presence/
+.tenet/telemetry/
+.tenet/telemetry-agent-state.json
+.tenet/current-*.txt
+.tenet/training-buffer.jsonl
+.tenet/predictions/
 
-node_modules
-dist
-dist-ssr
-*.local
+# Legacy .jfl directory (pre-rename)
+.jfl/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Worktrees
+worktrees/
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+
+# Secrets
+.env
+.env.*
+!.env.example
+!.env.required
+
+# OS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
