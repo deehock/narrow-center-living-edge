@@ -2,6 +2,7 @@
   "name": "narrow-center-living-edge",
   "type": "gtm",
   "description": "Chaordic governance workbench for AI agent fleets",
+  "parent_slug": "dee-hock",
   "org": {
     "roadmap_repo": "deehock/narrow-center-living-edge"
   },
@@ -11,8 +12,34 @@
     "spec"
   ],
   "preset": "zero",
-  "focus": "Building a new product from scratch. Start by filling in knowledge/VISION.md — what are you building and why? Then use /skill startup for stage assessment, /skill brand-architect for identity, /skill spec for technical spec.",
+  "focus": "Build Narrow Center / Living Edge as a real governance workbench, not a marketing landing page: policy diagnostics, compact/charter authoring, fleet inventory, scenario simulation, audit trails, and exportable operating doctrine.",
+  "registered_services": [
+    {
+      "name": "narrow-center-living-edge-app",
+      "path": ".",
+      "type": "web",
+      "description": "React/Vite product surface for designing and operating narrow-center/living-edge governance for AI agent fleets.",
+      "repo": "deehock/narrow-center-living-edge",
+      "url": "https://deehock.github.io/narrow-center-living-edge/",
+      "dev": "npm run dev",
+      "build": "npm run build",
+      "test": "npm test",
+      "lint": "npm run lint"
+    }
+  ],
+  "contextScope": {
+    "produces": [
+      "agent-governance:diagnostics",
+      "agent-governance:operating-compacts",
+      "agent-governance:fleet-inventory",
+      "agent-governance:audit-trails",
+      "chaordic-design:product-patterns"
+    ]
+  },
   "contextHub": {
     "port": 4792
-  }
+  },
+  "service": true,
+  "serviceName": "narrow-center-living-edge-app",
+  "gtm_parent": "/data/tenet/dee-hock"
 }
